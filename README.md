@@ -226,6 +226,40 @@ safety contract. Both new renderers use only `createElement` + `text()`, and
 `renderSplit` reuses the existing `renderComponent` so its media child passes
 through the same validator wall as every other component in the tree.
 
+**Trade-offs and honest limitations.** This contribution is deliberately narrow;
+the boundaries are worth naming:
+
+- **`Split.children[0]` as the media pane is a convention, not a schema
+  constraint.** The validator accepts any list under `children`; the renderer
+  simply picks index 0. A hostile agent that adds a second child gets it
+  silently ignored by the render but the id still travels through the tree.
+  Cleaner would be a dedicated `mediaChild` prop with a new "single-ref" prop
+  kind — deferred because it would introduce new validator machinery for a
+  problem the current convention closes.
+- **HeroBlock ships without a background image or a call-to-action button.**
+  Both are common landing-page elements and both were considered and dropped:
+  a background image opens a URL-scheme surface identical to `Image` and
+  requires the `isSafeUrl` gate; a CTA would push the schema toward `action`
+  props and enlarge the event surface. Additive follow-ups if needed.
+- **The recorded end-to-end demo swaps `harness_run.json` on disk to render.**
+  A general `/v1/surfaces/{name}` route that reads any `proofs/*_capture.json`
+  is a small, useful next PR; it did not seem worth the runtime change in a
+  component-contribution scope.
+- **No live navigation from the components themselves.** By design: both are
+  pure display and transitions happen through sibling `Button`s using existing
+  registered actions. The trade-off is one extra component to compose per
+  interaction; the win is zero new action surface and no new invariant to
+  defend.
+- **The pre-existing Windows-only test failure in
+  `test_birthday_creates_two_real_calendar_artifacts` is left as-is** — a
+  doubled-path OSError unrelated to the UI layer, and fixing it is out of
+  scope for a component-contribution PR. It fails on the untouched baseline
+  too; a reviewer can confirm with `git stash && pytest ...`.
+- **The `.env.example` in the diff is a one-byte trailing-newline change**
+  that entered the branch via editor autosave, not from these components; it
+  carries no content difference.
+
+
 ## Architecture
 
 - `s13code/core/live_graph/`: durable graph state, patches, event replay and bounded parallel execution

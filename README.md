@@ -147,11 +147,79 @@ Everything the Session 14 widgets replay is real captured output under `proofs/`
 | `harness_selfcorrect.json` | `harness_selfcorrect.py` | the planner catches weak Berlin evidence and re-researches |
 | `generated_surface.json` | `generate_live.py` | a local model's output caught by the validator |
 | `gemini_surface.json` | `generate_gemini.py` | Gemini's raw output via the gateway |
+| `hero_split_capture.json` | `hero_split_capture.py` | Gemini reaches for the new `HeroBlock` + `Split` components on its own |
 
 ```bash
 uv run python proofs/run_surface_proof.py    # writes proof.json, prints the table
 uv run pytest -q                             # S13 core + regression tests + the S14 invariant tests
 ```
+
+### HeroBlock + Split — Gemini reaches for two new components on its own
+
+Two new custom components live in the catalog: **`HeroBlock`** (a marketing-hero
+unit — categorical eyebrow tag over a bound headline and tagline) and **`Split`**
+(a two-pane text-plus-media section whose `children[0]` is drawn as the media
+pane). Neither name appears in the task or system prompt shipped to Gemini —
+the model finds them because `compose_surface` reads `catalog_manifest()` at
+call time. The same validator that guards every surface guards these too.
+
+**Reproduce from a fresh checkout:**
+
+```bash
+uv sync
+uv run pytest tests/test_s14_ui.py -q         # 74 passed; 14 new for the two components
+
+# capture a fresh Gemini run (needs glc_v3 on 8111)
+GLC_BASE_URL=http://127.0.0.1:8111 S14_GATEWAY_PROVIDER=gemini \
+  uv run python proofs/hero_split_capture.py  # -> proofs/hero_split_capture.json
+```
+
+**Exact task shipped to Gemini** (from `proofs/hero_split_capture.py`):
+
+> Design a one-screen recap of a research indexing run. The user wants an
+> answer that reads like a designed page, not a report. Compose an opening
+> presentation-style unit with an uppercase eyebrow tag and a headline/tagline
+> bound to `/hero_headline` / `/hero_tagline`; a two-pane section whose media
+> pane is a `BarChart` of `/chunks_by_paper`; and a `Row` of three `StatTile`s
+> for `/kpi_papers` / `/kpi_chunks` / `/kpi_words`.
+
+**Ordered component tree Gemini emitted** (from `proofs/hero_split_capture.json`):
+
+```
+Column(root) → [ HeroBlock(hero), Row(kpis), Split(split) ]
+Row(kpis)    → [ StatTile(t_papers), StatTile(t_chunks), StatTile(t_words) ]
+Split(split) → children=[ BarChart(bars) ]     # bars is the media pane
+```
+
+- agent `s14_hero_split_capture`, provider `gemini`, model `gemini-3.1-flash-lite`
+- 8 components proposed, **8 accepted, 0 rejected** by the validator
+- `hero_chosen: true`, `split_chosen: true` — the model reached for both new
+  components without being told their names
+
+**Adversarial evidence — every attack refused by name.**
+
+Before this change no schema existed for either component, so an ad-hoc client
+would have rendered whatever an agent emitted. After this change every attack
+below is refused by a named invariant. Each row is a real test in
+`tests/test_s14_ui.py`:
+
+| Attack | Result | Invariant |
+|---|---|---|
+| `{"type": "HeroBanner", ...}` — a plausible lookalike | rejected | catalog |
+| `HeroBlock.headline = "just a literal string"` (inline where a binding is required) | rejected | data-not-code |
+| `HeroBlock.eyebrow = "RESEARCH <script>x()</script>"` | rejected | data-not-code |
+| `HeroBlock.tone = "chartreuse"` (outside the enum) | rejected | data-not-code |
+| `HeroBlock.onPress = {action: "approve"}` — a handler the schema doesn't declare | rejected as unknown prop | data-not-code (no path to reach the event check) |
+| `{"type": "TwoPane", ...}` | rejected | catalog |
+| `Split.body = "just a literal string"` | rejected | data-not-code |
+| `Split.title = "Chunks <img src=x onerror=alert(1)>"` | rejected | data-not-code |
+| `Split.children = ["poison_button_with_unregistered_action"]` | media child dropped; **Split still renders its text pane** | safe-siblings |
+
+The render client's `innerHTML` count is unchanged at **1** occurrence — the
+single documented comment in `s13code/ui/client/index.html` that describes the
+safety contract. Both new renderers use only `createElement` + `text()`, and
+`renderSplit` reuses the existing `renderComponent` so its media child passes
+through the same validator wall as every other component in the tree.
 
 ## Architecture
 

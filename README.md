@@ -191,10 +191,15 @@ Row(kpis)    → [ StatTile(t_papers), StatTile(t_chunks), StatTile(t_words) ]
 Split(split) → children=[ BarChart(bars) ]     # bars is the media pane
 ```
 
-- agent `s14_hero_split_capture`, provider `gemini`, model `gemini-3.1-flash-lite`
+- agent `s14_hero_split_capture`, provider `gemini_1`, model `gemini-2.5-flash`
 - 8 components proposed, **8 accepted, 0 rejected** by the validator
 - `hero_chosen: true`, `split_chosen: true` — the model reached for both new
   components without being told their names
+- Live-render evidence: [`proofs/screenshots/01_hero_split_full.png`](proofs/screenshots/01_hero_split_full.png)
+  (full page), [`02_heroblock_closeup.png`](proofs/screenshots/02_heroblock_closeup.png),
+  [`03_split_closeup.png`](proofs/screenshots/03_split_closeup.png) — the exact
+  surface above rendered by the S14 client from the live `gemini_1`
+  compose call captured in `proofs/hero_split_capture.json`
 
 **Adversarial evidence — every attack refused by name.**
 

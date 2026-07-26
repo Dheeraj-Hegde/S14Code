@@ -1,0 +1,49 @@
+{
+  "provider": "gemini_2",
+  "model": "gemini-3.1-flash-lite",
+  "task": "Design a one-screen recap of a research indexing run...",
+  "raw": "{\"root\":\"root\",\"components\":[\n  {\"id\":\"root\",\"type\":\"Column\",\"children\":[\"hero\",\"kpis\",\"split\"]},\n  {\"id\":\"hero\",\"type\":\"HeroBlock\",\"eyebrow\":\"RESEARCH * 5 PAPERS\",\"headline\":{\"$bind\":\"/hero_headline\"},\"tagline\":{\"$bind\":\"/hero_tagline\"},\"tone\":\"good\"},\n  {\"id\":\"kpis\",\"type\":\"Row\",\"align\":\"stretch\",\"justify\":\"spaceBetween\",\"children\":[\"t_papers\",\"t_chunks\",\"t_words\"]},\n  {\"id\":\"t_papers\",\"type\":\"StatTile\",\"label\":\"Papers\",\"value\":{\"$bind\":\"/kpi_papers\"},\"tone\":\"good\"},\n  {\"id\":\"t_chunks\",\"type\":\"StatTile\",\"label\":\"Chunks\",\"value\":{\"$bind\":\"/kpi_chunks\"},\"tone\":\"neutral\"},\n  {\"id\":\"t_words\",\"type\":\"StatTile\",\"label\":\"Words\",\"value\":{\"$bind\":\"/kpi_words\"},\"tone\":\"neutral\"},\n  {\"id\":\"split\",\"type\":\"Split\",\"title\":\"Chunks per paper\",\"body\":{\"$bind\":\"/split_body\"},\"children\":[\"bars\"],\"flip\":false,\"tone\":\"neutral\"},\n  {\"id\":\"bars\",\"type\":\"BarChart\",\"title\":\"Chunks\",\"data\":{\"$bind\":\"/chunks_by_paper\"},\"xKey\":\"label\",\"yKey\":\"value\"}\n]}",
+  "surface_accepted": {
+    "root": "root",
+    "components": [
+      {"id": "root", "type": "Column", "children": ["hero", "kpis", "split"]},
+      {"id": "hero", "type": "HeroBlock",
+       "eyebrow": "RESEARCH * 5 PAPERS",
+       "headline": {"$bind": "/hero_headline"},
+       "tagline": {"$bind": "/hero_tagline"},
+       "tone": "good"},
+      {"id": "kpis", "type": "Row", "align": "stretch", "justify": "spaceBetween",
+       "children": ["t_papers", "t_chunks", "t_words"]},
+      {"id": "t_papers", "type": "StatTile", "label": "Papers",
+       "value": {"$bind": "/kpi_papers"}, "tone": "good"},
+      {"id": "t_chunks", "type": "StatTile", "label": "Chunks",
+       "value": {"$bind": "/kpi_chunks"}, "tone": "neutral"},
+      {"id": "t_words", "type": "StatTile", "label": "Words",
+       "value": {"$bind": "/kpi_words"}, "tone": "neutral"},
+      {"id": "split", "type": "Split", "title": "Chunks per paper",
+       "body": {"$bind": "/split_body"}, "children": ["bars"],
+       "flip": false, "tone": "neutral"},
+      {"id": "bars", "type": "BarChart", "title": "Chunks",
+       "data": {"$bind": "/chunks_by_paper"}, "xKey": "label", "yKey": "value"}
+    ],
+    "dataModel": {
+      "hero_headline": "How five papers reshape the S13 index",
+      "hero_tagline": "A synthesis of five recent papers, indexed live from the S13 corpus and quoted only from evidence.",
+      "split_body": "Two papers dominate the index -- the top result contributes more than a third of every semantic chunk the retrieval layer serves.",
+      "kpi_papers": 5,
+      "kpi_chunks": 218,
+      "kpi_words": 41203,
+      "chunks_by_paper": [
+        {"label": "Chen24", "value": 72},
+        {"label": "Patel23", "value": 61},
+        {"label": "Ito24",  "value": 38},
+        {"label": "Kim23",  "value": 27},
+        {"label": "Roy22",  "value": 20}
+      ]
+    }
+  },
+  "rejections": [],
+  "types_used": ["BarChart", "Column", "HeroBlock", "Row", "Split", "StatTile"],
+  "hero_chosen": true,
+  "split_chosen": true
+}

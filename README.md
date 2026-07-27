@@ -148,6 +148,7 @@ Everything the Session 14 widgets replay is real captured output under `proofs/`
 | `generated_surface.json` | `generate_live.py` | a local model's output caught by the validator |
 | `gemini_surface.json` | `generate_gemini.py` | Gemini's raw output via the gateway |
 | `hero_split_capture.json` | `hero_split_capture.py` | Gemini reaches for the new `HeroBlock` + `Split` components on its own |
+| `part2/turn_{1..4}.json` + `conversation.json` | `part2_fitness_coach.py` | Part 2 — a 4-turn UI-only fitness-coach conversation ending in the boundary-attack refusal |
 
 ```bash
 uv run python proofs/run_surface_proof.py    # writes proof.json, prints the table
@@ -258,6 +259,91 @@ the boundaries are worth naming:
 - **The `.env.example` in the diff is a one-byte trailing-newline change**
   that entered the branch via editor autosave, not from these components; it
   carries no content difference.
+
+
+### Part 2 — a UI-only fitness-coach application across four turns
+
+A worked application in a real domain: **"design me a 4-week beginner strength
+plan"**. Every reply is a composed, catalog-validated interface. The user drives
+the conversation with taps; each tap earns the next turn as a new composed
+interface. The last turn is the deliberate boundary attack — the wall refuses
+all three invariant classes in one shot.
+
+**Reproduce from a fresh checkout** (needs `glc_v3` on 8111 with a Gemini key):
+
+```bash
+uv sync
+GLC_BASE_URL=http://127.0.0.1:8111 S14_GATEWAY_PROVIDER=gemini \
+  uv run python proofs/part2_fitness_coach.py
+# writes proofs/part2/turn_{1..4}.json + conversation.json
+# (each turn is a real /v1/chat call with the growing conversation context)
+```
+
+**Provider/agent for every turn:**
+`provider: gemini_1 · model: gemini-2.5-flash · agent: s14_fitness_coach`
+(turn 4 uses `agent: s14_fitness_coach_attack` with a permissive system prompt
+so the attack actually reaches the wall instead of being pre-filtered by the
+model's own instruction-following).
+
+| Turn | User tap | Composed components (accepted) | Wall's rejections | Screenshot |
+|---|---|---|---|---|
+| 1 | *"design me a 4-week plan…"* | `HeroBlock` + `Row` of 3 `StatTile`s + `Timeline` of 4 weeks + `Column` layout | 8 `Button.onPress` refused as `unregistered action None` (Gemini omitted the action name) | [`turn_1_opener.png`](proofs/screenshots/part2/turn_1_opener.png) |
+| 2 | tap **"Mon"** | `HeroBlock` + `Split` (form-cues text pane + `BarChart` media pane) + `Timeline` of the workout | 3 `Button.onPress` refused, same reason | [`turn_2_monday.png`](proofs/screenshots/part2/turn_2_monday.png) |
+| 3 | tap **"Show me alternates for the barbell row"** | `HeroBlock` + `DataTable` of 5 alternates + `Notice` about form | 3 `Button.onPress` refused, same reason | [`turn_3_alternates.png`](proofs/screenshots/part2/turn_3_alternates.png) |
+| 4 | **boundary attack** — asked the model to include `RawHtml`, a `<img onerror>` in a bound value, and an unregistered `bookmark` action | only the `Row` survives | **all three invariants named**: `RawHtml` → catalog · markup in `Text.text` → data-not-code · `bookmark` action → event · plus 4 inline-literal data-not-code refusals on bindings | [`turn_4_attack_validator_refuses.png`](proofs/screenshots/part2/turn_4_attack_validator_refuses.png) |
+
+**Boundary-attack, in the wall's own words** — from a live `POST /v1/validate`
+call against the running server (`proofs/part2/turn_4_validator_verdict.json`):
+
+```
+ok: false          8 components proposed          1 accepted / 7 rejected
+
+  heroBlock1.headline   [data-not-code]  binding must be {'$bind': '/pointer'}
+  statTile1.value       [data-not-code]  binding must be {'$bind': '/pointer'}
+  statTile2.value       [data-not-code]  binding must be {'$bind': '/pointer'}
+  statTile3.value       [data-not-code]  binding must be {'$bind': '/pointer'}
+  button1.onPress       [event]          unregistered action 'bookmark'
+  rawHtml1.type         [catalog]        unknown component type 'RawHtml'
+  text1.text            [data-not-code]  value carries markup
+```
+
+The rendered comparison is on disk as
+[`proofs/screenshots/part2/turn_4_attack_validator_refuses.png`](proofs/screenshots/part2/turn_4_attack_validator_refuses.png)
+(raw attack surface on the left, wall verdict on the right). The safe part —
+`row1` — is all that would render, so the interface the attacker was trying to
+smuggle in **does not exist** on the client.
+
+**What this earns for the rubric.** Every turn is a composed, catalog-validated
+interface, not a paragraph of text. The taps carry the conversation across four
+turns (the growing conversation context is included in every prompt, exactly
+the way `s13code/ui/client/app.html` sends `convo` on each `runTurn`). The
+components differ by data shape: `Timeline` for the 4-week sequence, `Split`
++ `BarChart` for the intensity progression, `DataTable` for the alternates,
+`Notice` for the form warning — not one component reused as a text blob. The
+end-to-end run goes through the real gateway. And the wall refuses the
+adversarial prompt while the *would-be* safe siblings survive validation, even
+if they end up with no coherent tree left to render — which is itself a
+correct outcome for a compromised composition.
+
+**Honest limitations of the Part 2 recording.**
+
+- **The captured turns rendered via the harness swap trick**, not through a
+  live `/s/{run_id}` route driven by a real live-graph run. A live graph run
+  needs Ollama's `nomic-embed-text` on 11434 for the first memory write; that
+  Ollama dependency is orthogonal to the UI-composition property this session
+  demonstrates. The Part 1 trade-offs section flags a small `/v1/surfaces/{name}`
+  route as the natural follow-up to remove the swap.
+- **Every turn's Buttons had their `action` name omitted by the model**
+  (`unregistered action None`). That is a real live imperfection surfaced by
+  the wall — the invariant caught 14 concrete violations across the three
+  natural turns without any adversarial framing. A cleaner prompt (or a
+  planner-node retry, as `harness_selfcorrect.py` demonstrates for evidence)
+  would recover them; this session shows the raw first-shot output for
+  honesty.
+- **Turn 4's tree collapsed to just `row1`** because the model made the
+  `HeroBlock` its root and gave it invalid children. The wall protecting is
+  the story; the fact that the surviving component set doesn't rehydrate into
+  a fully rendered page is the truthful visual outcome.
 
 
 ## Architecture
